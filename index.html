@@ -75,16 +75,23 @@
         
         #cannon-barrel {
             position: absolute;
-            bottom: 35px; /* Sits on top of the base, 35px from game-area bottom */
+            /* CRITICAL FIX: The base is 40px high, and we want the pivot point to be at the top center of the base. */
+            bottom: 35px; /* Sits on top of the base, 35px from game-area bottom (CannonPos.y = areaHeight - 60) */
             width: 70px; /* Length of the barrel */
             height: 15px; /* Thickness of the barrel */
             background: linear-gradient(to right, #6366f1, #3b82f6); /* Blue/Purple metallic look */
             border-radius: 8px;
-            transform-origin: 5% 50%; /* Pivot point near the base */
+            
+            /* CRITICAL FIX: Pivot point is now the left end of the barrel (0% X) */
+            transform-origin: 0 50%; 
+            
             transition: transform 0.1s ease-out;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            left: 50%;
-            margin-left: -35px; /* Center it */
+            
+            /* Position the barrel's pivot point (its left edge) exactly at the center of the base's top edge. */
+            left: 50%; 
+            margin-left: 0; 
+            
             transform: rotate(-90deg); /* Start pointing straight up */
         }
         /* --- END CANNON STYLING --- */
@@ -257,6 +264,7 @@
          */
         function initializeGameMetrics() {
             // Recalculate cannon position based on current game area size
+            // cannonPos is the pivot point for the barrel
             cannonPos.x = gameArea.clientWidth / 2;
             cannonPos.y = gameArea.clientHeight - CANNON_PIVOT_OFFSET_Y; 
 
@@ -266,7 +274,8 @@
                 targetY = 50;
                 targetPhoto.style.left = `${targetX}px`;
                 targetPhoto.style.top = `${targetY}px`;
-                cannonBarrel.style.transform = `rotate(${(-Math.PI / 2)}rad)`; // Aim straight up
+                // Set initial barrel angle to straight up (-90 degrees or -Math.PI/2)
+                cannonBarrel.style.transform = `rotate(${(-Math.PI / 2)}rad)`; 
             }
 
             scoreDisplay.textContent = `Hits: ${hits} / ${MAX_HITS}`;
@@ -447,9 +456,7 @@
             projectileElement.textContent = '💖'; // Heart emoji projectile
             gameArea.appendChild(projectileElement);
             
-            // Calculate velocity components. 
-            // Note: Canvas Y axis is flipped (positive is down), so we use -sin(angle) if aiming conventionally, 
-            // but the angle calculation already accounts for this.
+            // Calculate velocity components.
             const vx = speed * Math.cos(angleRad);
             const vy = speed * Math.sin(angleRad); 
 
@@ -517,18 +524,14 @@
 
             let angleRad = Math.atan2(dy, dx);
             
-            // Clamp the angle to the upper half circle (aiming above the cannon).
-            // A click below the cannon (dy > 0) should still result in an angle between -PI (left) and 0 (right).
-            if (dy > 0) {
-                // If the click is below the cannon pivot, clamp to the nearest horizontal
-                if (dx >= 0) { // Bottom right
-                    angleRad = 0; 
-                } else { // Bottom left
-                    angleRad = -Math.PI;
+            // CRITICAL FIX: Clamp the angle to only allow aiming in the upper half-circle.
+            // If the calculated angle is positive, it means the click was below the cannon (dy > 0)
+            if (angleRad > 0) {
+                if (dx >= 0) { // Bottom right quadrant
+                    angleRad = 0; // Clamp to straight right
+                } else { // Bottom left quadrant
+                    angleRad = Math.PI; // Clamp to straight left 
                 }
-            } else {
-                // Ensure angle is between 0 and -PI (top half of circle)
-                if (angleRad > 0) angleRad = -Math.PI / 2; // Default to straight up if the math is somehow wonky
             }
             
             // 1. Aim (instant barrel rotation)
@@ -544,8 +547,8 @@
 
         // Recalculate metrics on resize
         window.addEventListener('resize', () => {
-             if (gameScreen.classList.contains('hidden')) return;
-             initializeGameMetrics();
+              if (gameScreen.classList.contains('hidden')) return;
+              initializeGameMetrics();
         });
 
         // Mouse Listeners: Use mousedown on the entire game area to shoot
