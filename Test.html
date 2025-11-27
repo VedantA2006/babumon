@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorry Babumon ❤️</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the game elements */
+        @import url('https://fonts.googleapis.com/css2?family=Pacifico&family=Inter:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fce7f3; /* Light Pink Background */
+            overflow: hidden; /* Prevent scrolling */
+        }
+
+        .apology-title {
+            font-family: 'Pacifico', cursive;
+            color: #ec4899; /* Deep Pink */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .screen {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .game-area {
+            position: relative;
+            width: 95%;
+            max-width: 800px;
+            height: 80vh;
+            max-height: 600px;
+            border: 4px solid #f9a8d4;
+            background-color: #fff0f6; /* Very light pink/white game background */
+            box-shadow: 0 10px 20px rgba(236, 72, 153, 0.3);
+            border-radius: 1.5rem;
+            overflow: hidden;
+        }
+
+        /* --- CANNON STYLING --- */
+        #cannon-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px; 
+            height: 40px;
+            cursor: default; 
+            user-select: none;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        #cannon-base {
+            width: 80px;
+            height: 40px;
+            background: linear-gradient(to bottom, #a0a0a0, #737373); /* Metallic gradient */
+            border-radius: 1rem 1rem 0 0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset 0 2px 5px rgba(255, 255, 255, 0.5);
+            position: absolute;
+            bottom: 0;
+        }
+        
+        #cannon-barrel {
+            position: absolute;
+            bottom: 35px; /* Sits on top of the base, 35px from game-area bottom */
+            width: 70px; /* Length of the barrel */
+            height: 15px; /* Thickness of the barrel */
+            background: linear-gradient(to right, #6366f1, #3b82f6); /* Blue/Purple metallic look */
+            border-radius: 8px;
+            transform-origin: 5% 50%; /* Pivot point near the base */
+            transition: transform 0.1s ease-out;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            left: 50%;
+            margin-left: -35px; /* Center it */
+        }
+        /* --- END CANNON STYLING --- */
+
+
+        .projectile {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle, #ff6b81, #e84393); /* Glowing Pink Heart */
+            border-radius: 50%;
+            box-shadow: 0 0 10px #ff6b81;
+            text-align: center;
+            line-height: 30px;
+            font-size: 20px;
+            pointer-events: none;
+            z-index: 90;
+            /* Add a subtle animation to the projectile */
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+        
+        /* New CSS for hit effect */
+        .hit-effect {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #ffe0e6 10%, #ff6b81 50%, transparent 80%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 150;
+            opacity: 1;
+            transform: scale(0);
+            animation: hit-sparkle 0.3s ease-out forwards;
+        }
+
+        @keyframes hit-sparkle {
+            0% { transform: scale(0); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+        /* End New CSS */
+
+        #target-photo {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 0 15px #ec4899;
+            transition: transform 0.1s linear; /* Smooth movement */
+            user-select: none;
+            pointer-events: none;
+            z-index: 50;
+        }
+        
+        #target-photo.hit {
+            opacity: 0.8;
+            transform: scale(1.2) rotate(5deg); /* More dramatic visual feedback */
+        }
+
+        #win-message {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 200;
+            border-radius: 1.5rem;
+        }
+        
+        #final-photo {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 2rem;
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.5);
+            border: 4px solid white;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 1. Start Screen -->
+    <div id="start-screen" class="screen bg-fce7f3">
+        <h1 class="apology-title text-6xl md:text-8xl mb-12 animate-pulse">
+            Sorry babumon
+        </h1>
+        <button id="play-button"
+                class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 px-8 rounded-full shadow-xl transition duration-300 transform hover:scale-105 active:scale-95 text-xl tracking-wider">
+            Play The Game
+        </button>
+    </div>
+
+    <!-- 2. Game Screen -->
+    <div id="game-screen" class="screen hidden">
+        <div id="score-display" class="text-2xl font-bold mb-4 text-pink-700">Hits: 0 / 10</div>
+        <div id="game-area" class="game-area">
+            
+            <!-- Target Photo (The one that moves) -->
+            <!-- 
+                *** IMPORTANT: Replace 'images/ph1.jpg' with your actual file path. 
+                The onerror fallback ensures a placeholder is shown if the image is missing. ***
+            -->
+            <img id="target-photo" 
+                src="images/ph1.jpg" 
+                alt="Moving Target" 
+                onerror="this.onerror=null; this.src='https://placehold.co/100x100/ec4899/FFFFFF?text=My+Photo';">
+
+            <!-- Cannon and Barrel -->
+            <div id="cannon-container">
+                <div id="cannon-base"></div>
+                <div id="cannon-barrel"></div>
+            </div>
+            
+            <!-- Win Message Overlay (Updated Apology Message) -->
+            <div id="win-message" class="p-8 text-center">
+                <!-- 
+                    *** FINAL PHOTO SPACE: The image shown after winning. 
+                    Replace 'images/ph2.jpg' with your actual file path. ***
+                -->
+                <img id="final-photo" 
+                    src="images/ph2.jpg" 
+                    alt="Final Apology Photo" 
+                    onerror="this.onerror=null; this.src='https://placehold.co/150x150/f472b6/FFFFFF?text=Final+Pic';">
+                    
+                <h2 class="apology-title text-5xl md:text-7xl mb-6">You Win! Forgiveness Unlocked!</h2>
+                <p class="text-xl text-gray-600">
+                    Sorry for speaking too much and I promise I will not be doing this again. 
+                    Sorry babumon, I love youuu. ❤️
+                </p>
+            </div>
+        </div>
+        <p class="mt-4 text-gray-500 text-sm">Tap anywhere in the game area to aim and shoot!</p>
+    </div>
+
+    <script>
+        // --- Firebase Setup (Kept for Canvas environment compatibility) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Game Constants
+        const MAX_HITS = 10;
+        const TARGET_SIZE = 100; // px
+        const PROJECTILE_SIZE = 30; // px
+        const CANNON_BARREL_LENGTH = 70; // px (Used for shooting origin offset)
+
+        // Game State
+        let hits = 0;
+        let projectiles = [];
+        let targetVelocity = { x: 2, y: 1.5 }; // Initial speed
+        let cannonPos = { x: 0, y: 0 }; // Center of the cannon base (the pivot point for barrel)
+        let isGameRunning = false;
+        
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const playButton = document.getElementById('play-button');
+        const gameArea = document.getElementById('game-area');
+        const cannonBarrel = document.getElementById('cannon-barrel');
+        const targetPhoto = document.getElementById('target-photo');
+        const scoreDisplay = document.getElementById('score-display');
+        const winMessage = document.getElementById('win-message');
+        const finalPhoto = document.getElementById('final-photo'); 
+
+        // Initial setup for the target
+        let targetX = 0;
+        let targetY = 0;
+
+        /**
+         * Calculates initial sizes and positions for the game elements.
+         */
+        function initializeGameMetrics() {
+            // Calculate initial cannon position based on game area size
+            
+            // Cannon center X
+            cannonPos.x = gameArea.clientWidth / 2;
+            
+            // Cannon pivot Y: 40px (base height) + 20px (bottom margin) = 60px from the bottom
+            cannonPos.y = gameArea.clientHeight - 60; 
+
+            // Ensure target is centered initially
+            targetX = (gameArea.clientWidth - TARGET_SIZE) / 2;
+            targetY = 50;
+            targetPhoto.style.left = `${targetX}px`;
+            targetPhoto.style.top = `${targetY}px`;
+
+            scoreDisplay.textContent = `Hits: ${hits} / ${MAX_HITS}`;
+        }
+        
+        // --- Utility Functions ---
+
+        /**
+         * Clamps a value between a min and max.
+         */
+        const clamp = (num, min, max) => Math.max(min, Math.min(num, max));
+
+        /**
+         * Calculates the distance between two points.
+         */
+        const distance = (x1, y1, x2, y2) => Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+
+
+        // --- Game Logic ---
+
+        /**
+         * Moves the target and handles wall collisions.
+         */
+        function updateTargetPosition() {
+            if (hits >= MAX_HITS) return;
+
+            const areaWidth = gameArea.clientWidth;
+            const areaHeight = gameArea.clientHeight;
+
+            // Update position
+            targetX += targetVelocity.x;
+            targetY += targetVelocity.y;
+
+            // Wall collision detection and reversal of velocity
+            if (targetX < 0 || targetX + TARGET_SIZE > areaWidth) {
+                targetVelocity.x *= -1;
+                targetX = clamp(targetX, 0, areaWidth - TARGET_SIZE);
+            }
+
+            if (targetY < 0 || targetY + TARGET_SIZE > areaHeight) {
+                targetVelocity.y *= -1;
+                targetY = clamp(targetY, 0, areaHeight - TARGET_SIZE);
+            }
+            
+            // Apply new position to DOM
+            targetPhoto.style.left = `${targetX}px`;
+            targetPhoto.style.top = `${targetY}px`;
+        }
+        
+        /**
+         * Updates the position of all active projectiles.
+         */
+        function updateProjectiles() {
+            const areaWidth = gameArea.clientWidth;
+            const areaHeight = gameArea.clientHeight;
+            const newProjectiles = [];
+            
+            projectiles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                
+                // Check if projectile is still inside the game area
+                if (p.x >= -p.size && p.x <= areaWidth && p.y >= -p.size && p.y <= areaHeight) {
+                    p.element.style.left = `${p.x}px`;
+                    p.element.style.top = `${p.y}px`;
+                    newProjectiles.push(p);
+                } else {
+                    p.element.remove();
+                }
+            });
+            
+            projectiles = newProjectiles;
+        }
+
+        /**
+         * Checks for collisions between projectiles and the target.
+         */
+        function checkCollisions() {
+            const targetCenterX = targetX + TARGET_SIZE / 2;
+            const targetCenterY = targetY + TARGET_SIZE / 2;
+            
+            const newProjectiles = [];
+            let hitOccurred = false;
+
+            projectiles.forEach(p => {
+                const projectileCenterX = p.x + p.size / 2;
+                const projectileCenterY = p.y + p.size / 2;
+                
+                const dist = distance(projectileCenterX, projectileCenterY, targetCenterX, targetCenterY);
+                const collisionRadius = TARGET_SIZE / 2 + p.size / 2;
+                
+                if (dist < collisionRadius) {
+                    // Collision!
+                    hits++;
+                    scoreDisplay.textContent = `Hits: ${hits} / ${MAX_HITS}`;
+                    p.element.remove();
+                    hitOccurred = true;
+
+                    // --- NEW: Add temporary visual hit effect ---
+                    const hitEffect = document.createElement('div');
+                    hitEffect.className = 'hit-effect';
+                    hitEffect.style.left = `${projectileCenterX - 25}px`; // Center 50x50 effect
+                    hitEffect.style.top = `${projectileCenterY - 25}px`;
+                    gameArea.appendChild(hitEffect);
+
+                    // Remove the sparkle effect after its animation ends
+                    setTimeout(() => hitEffect.remove(), 300);
+                    // --- END NEW ---
+
+                    // Brief visual feedback on hit
+                    targetPhoto.classList.add('hit');
+                    setTimeout(() => targetPhoto.classList.remove('hit'), 150);
+                    
+                } else {
+                    newProjectiles.push(p);
+                }
+            });
+            
+            projectiles = newProjectiles;
+            if (hitOccurred) checkWin();
+        }
+
+        /**
+         * Checks if the win condition has been met.
+         */
+        function checkWin() {
+            if (hits >= MAX_HITS) {
+                isGameRunning = false;
+                // Clear any remaining projectiles
+                projectiles.forEach(p => p.element.remove());
+                projectiles = [];
+                
+                // 'Break' the photo by shrinking/fading
+                targetPhoto.style.transition = 'opacity 1s, transform 1s';
+                targetPhoto.style.opacity = '0';
+                targetPhoto.style.transform = 'scale(0.1)';
+
+                // Show the final apology message
+                winMessage.style.display = 'flex';
+                // Stop the score updates
+                scoreDisplay.textContent = `Hits: ${MAX_HITS} / ${MAX_HITS} - Done!`;
+            }
+        }
+        
+        /**
+         * The main game animation loop.
+         */
+        function gameLoop() {
+            if (isGameRunning) {
+                updateTargetPosition();
+                updateProjectiles();
+                checkCollisions();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        /**
+         * Initializes the game state and starts the loop.
+         */
+        function startGame() {
+            if (isGameRunning) return; // Prevent double start
+            
+            initializeGameMetrics(); // Recalculate metrics right before start
+
+            hits = 0;
+            scoreDisplay.textContent = `Hits: ${hits} / ${MAX_HITS}`;
+            
+            // Hide start screen, show game screen
+            startScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            // Hide win message if restarting
+            winMessage.style.display = 'none';
+            // Reset photo appearance
+            targetPhoto.style.transition = 'none';
+            targetPhoto.style.opacity = '1';
+            targetPhoto.style.transform = 'scale(1)';
+
+
+            isGameRunning = true;
+            // Start the animation loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        /**
+         * Creates and launches a projectile.
+         * @param {number} angleRad Angle in radians.
+         */
+        function launchProjectile(angleRad) {
+            const speed = 20; // Fixed projectile speed
+            
+            const projectileElement = document.createElement('div');
+            projectileElement.className = 'projectile';
+            projectileElement.textContent = '💖'; // Heart emoji projectile
+            gameArea.appendChild(projectileElement);
+            
+            // Calculate velocity components. 
+            const vx = speed * Math.cos(angleRad);
+            const vy = speed * Math.sin(angleRad); 
+
+            // Calculate initial position at the Muzzle based on the CannoPos (Pivot)
+            const muzzleX = cannonPos.x + CANNON_BARREL_LENGTH * Math.cos(angleRad);
+            const muzzleY = cannonPos.y + CANNON_BARREL_LENGTH * Math.sin(angleRad);
+
+            // Center the projectile on the muzzle position
+            const x = muzzleX - PROJECTILE_SIZE / 2;
+            const y = muzzleY - PROJECTILE_SIZE / 2;
+            
+            // Apply initial position
+            projectileElement.style.left = `${x}px`;
+            projectileElement.style.top = `${y}px`;
+
+            projectiles.push({ 
+                element: projectileElement, 
+                x: x, 
+                y: y, 
+                vx: vx, 
+                vy: vy,
+                size: PROJECTILE_SIZE
+            });
+        }
+        
+        // --- Input Handlers (Click/Tap to Shoot) ---
+
+        /**
+         * Maps touch/mouse coordinates to game area local coordinates.
+         */
+        function getLocalCoords(e) {
+            const gameRect = gameArea.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            return {
+                x: clientX - gameRect.left,
+                y: clientY - gameRect.top
+            };
+        }
+
+        /**
+         * Handles aiming and shooting on click/tap.
+         */
+        function handleShoot(e) {
+            // Prevent shooting if the game hasn't started or is won
+            if (hits >= MAX_HITS || !isGameRunning) return;
+            e.preventDefault();
+
+            // Ignore right-clicks
+            if (e.button === 2) return; 
+
+            const coords = getLocalCoords(e);
+            const clickX = coords.x;
+            const clickY = coords.y;
+            
+            // Calculate direction vector (from cannon center to click)
+            const dx = clickX - cannonPos.x;
+            const dy = clickY - cannonPos.y; // Positive Y is down on screen
+
+            let angleRad = Math.atan2(dy, dx);
+            
+            // Clamp the angle to the upper half circle (between -PI and 0 radians, inclusive).
+            // This prevents the cannon from shooting downwards.
+            if (angleRad > 0) {
+                if (dx >= 0) { // Clicked bottom-right or straight down
+                    angleRad = 0; // Aim straight right
+                } else { // Clicked bottom-left
+                    angleRad = -Math.PI; // Aim straight left
+                }
+            }
+            
+            // 1. Aim (instant barrel rotation)
+            cannonBarrel.style.transform = `rotate(${angleRad}rad)`;
+            
+            // 2. Launch the projectile
+            launchProjectile(angleRad);
+        }
+
+        // --- Event Listeners and Initialization ---
+
+        playButton.addEventListener('click', startGame);
+
+        // Recalculate metrics on resize
+        window.addEventListener('resize', () => {
+             if (gameScreen.classList.contains('hidden')) return;
+             initializeGameMetrics();
+        });
+
+        // Mouse Listeners: Use mousedown on the entire game area to shoot
+        gameArea.addEventListener('mousedown', handleShoot);
+
+        // Touch Listeners: Use touchstart on the entire game area to shoot
+        gameArea.addEventListener('touchstart', handleShoot);
+        
+        // Prevent context menu on touch devices
+        gameArea.addEventListener('contextmenu', e => e.preventDefault());
+
+
+        window.onload = function() {
+            setTimeout(initializeGameMetrics, 100);
+            requestAnimationFrame(gameLoop); // Start the animation loop once on load
+        };
+        
+    </script>
+</body>
+</html>
