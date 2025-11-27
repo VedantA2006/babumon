@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sorry Babumon ❤️</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom styles for the game elements */
@@ -86,6 +85,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             left: 50%;
             margin-left: -35px; /* Center it */
+            transform: rotate(-90deg); /* Start pointing straight up */
         }
         /* --- END CANNON STYLING --- */
 
@@ -179,7 +179,6 @@
 </head>
 <body>
 
-    <!-- 1. Start Screen -->
     <div id="start-screen" class="screen bg-fce7f3">
         <h1 class="apology-title text-6xl md:text-8xl mb-12 animate-pulse">
             Sorry babumon
@@ -190,37 +189,23 @@
         </button>
     </div>
 
-    <!-- 2. Game Screen -->
     <div id="game-screen" class="screen hidden">
         <div id="score-display" class="text-2xl font-bold mb-4 text-pink-700">Hits: 0 / 10</div>
         <div id="game-area" class="game-area">
             
-            <!-- Target Photo (The one that moves) -->
-            <!-- 
-                *** IMPORTANT: Replace 'images/ph1.jpg' with your actual file path. 
-                The onerror fallback ensures a placeholder is shown if the image is missing. ***
-            -->
             <img id="target-photo" 
-                src="images/ph1.jpg" 
-                alt="Moving Target" 
-                onerror="this.onerror=null; this.src='https://placehold.co/100x100/ec4899/FFFFFF?text=My+Photo';">
+                src="ph1.jpg" 
+                alt="Moving Target">
 
-            <!-- Cannon and Barrel -->
             <div id="cannon-container">
                 <div id="cannon-base"></div>
                 <div id="cannon-barrel"></div>
             </div>
             
-            <!-- Win Message Overlay (Updated Apology Message) -->
             <div id="win-message" class="p-8 text-center">
-                <!-- 
-                    *** FINAL PHOTO SPACE: The image shown after winning. 
-                    Replace 'images/ph2.jpg' with your actual file path. ***
-                -->
                 <img id="final-photo" 
-                    src="images/ph2.jpg" 
-                    alt="Final Apology Photo" 
-                    onerror="this.onerror=null; this.src='https://placehold.co/150x150/f472b6/FFFFFF?text=Final+Pic';">
+                    src="ph2.jpg" 
+                    alt="Final Apology Photo">
                     
                 <h2 class="apology-title text-5xl md:text-7xl mb-6">You Win! Forgiveness Unlocked!</h2>
                 <p class="text-xl text-gray-600">
@@ -233,16 +218,12 @@
     </div>
 
     <script>
-        // --- Firebase Setup (Kept for Canvas environment compatibility) ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        // Game Constants
+        // --- Game Constants ---
         const MAX_HITS = 10;
         const TARGET_SIZE = 100; // px
         const PROJECTILE_SIZE = 30; // px
-        const CANNON_BARREL_LENGTH = 70; // px (Used for shooting origin offset)
+        const CANNON_BARREL_LENGTH = 70; // px 
+        const CANNON_PIVOT_OFFSET_Y = 60; // 40px (base height) + 20px (bottom margin)
 
         // Game State
         let hits = 0;
@@ -260,48 +241,37 @@
         const targetPhoto = document.getElementById('target-photo');
         const scoreDisplay = document.getElementById('score-display');
         const winMessage = document.getElementById('win-message');
-        const finalPhoto = document.getElementById('final-photo'); 
-
+        
         // Initial setup for the target
         let targetX = 0;
         let targetY = 0;
+
+        // --- Utility Functions ---
+        const clamp = (num, min, max) => Math.max(min, Math.min(num, max));
+        const distance = (x1, y1, x2, y2) => Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+
+        // --- Core Game Functions ---
 
         /**
          * Calculates initial sizes and positions for the game elements.
          */
         function initializeGameMetrics() {
-            // Calculate initial cannon position based on game area size
-            
-            // Cannon center X
+            // Recalculate cannon position based on current game area size
             cannonPos.x = gameArea.clientWidth / 2;
-            
-            // Cannon pivot Y: 40px (base height) + 20px (bottom margin) = 60px from the bottom
-            cannonPos.y = gameArea.clientHeight - 60; 
+            cannonPos.y = gameArea.clientHeight - CANNON_PIVOT_OFFSET_Y; 
 
-            // Ensure target is centered initially
-            targetX = (gameArea.clientWidth - TARGET_SIZE) / 2;
-            targetY = 50;
-            targetPhoto.style.left = `${targetX}px`;
-            targetPhoto.style.top = `${targetY}px`;
+            // Initialize/reposition target only if the game is NOT running or at start
+            if (!isGameRunning) {
+                targetX = (gameArea.clientWidth - TARGET_SIZE) / 2;
+                targetY = 50;
+                targetPhoto.style.left = `${targetX}px`;
+                targetPhoto.style.top = `${targetY}px`;
+                cannonBarrel.style.transform = `rotate(${(-Math.PI / 2)}rad)`; // Aim straight up
+            }
 
             scoreDisplay.textContent = `Hits: ${hits} / ${MAX_HITS}`;
         }
         
-        // --- Utility Functions ---
-
-        /**
-         * Clamps a value between a min and max.
-         */
-        const clamp = (num, min, max) => Math.max(min, Math.min(num, max));
-
-        /**
-         * Calculates the distance between two points.
-         */
-        const distance = (x1, y1, x2, y2) => Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-
-
-        // --- Game Logic ---
-
         /**
          * Moves the target and handles wall collisions.
          */
@@ -310,20 +280,22 @@
 
             const areaWidth = gameArea.clientWidth;
             const areaHeight = gameArea.clientHeight;
+            const targetBoundaryY = areaHeight - TARGET_SIZE;
+            const targetBoundaryX = areaWidth - TARGET_SIZE;
 
             // Update position
             targetX += targetVelocity.x;
             targetY += targetVelocity.y;
 
             // Wall collision detection and reversal of velocity
-            if (targetX < 0 || targetX + TARGET_SIZE > areaWidth) {
+            if (targetX < 0 || targetX > targetBoundaryX) {
                 targetVelocity.x *= -1;
-                targetX = clamp(targetX, 0, areaWidth - TARGET_SIZE);
+                targetX = clamp(targetX, 0, targetBoundaryX);
             }
 
-            if (targetY < 0 || targetY + TARGET_SIZE > areaHeight) {
+            if (targetY < 0 || targetY > targetBoundaryY) {
                 targetVelocity.y *= -1;
-                targetY = clamp(targetY, 0, areaHeight - TARGET_SIZE);
+                targetY = clamp(targetY, 0, targetBoundaryY);
             }
             
             // Apply new position to DOM
@@ -340,6 +312,7 @@
             const newProjectiles = [];
             
             projectiles.forEach(p => {
+                // Apply velocity
                 p.x += p.vx;
                 p.y += p.vy;
                 
@@ -380,17 +353,15 @@
                     p.element.remove();
                     hitOccurred = true;
 
-                    // --- NEW: Add temporary visual hit effect ---
+                    // Add temporary visual hit effect
                     const hitEffect = document.createElement('div');
                     hitEffect.className = 'hit-effect';
-                    hitEffect.style.left = `${projectileCenterX - 25}px`; // Center 50x50 effect
+                    hitEffect.style.left = `${projectileCenterX - 25}px`; 
                     hitEffect.style.top = `${projectileCenterY - 25}px`;
                     gameArea.appendChild(hitEffect);
 
-                    // Remove the sparkle effect after its animation ends
                     setTimeout(() => hitEffect.remove(), 300);
-                    // --- END NEW ---
-
+                    
                     // Brief visual feedback on hit
                     targetPhoto.classList.add('hit');
                     setTimeout(() => targetPhoto.classList.remove('hit'), 150);
@@ -442,7 +413,7 @@
          * Initializes the game state and starts the loop.
          */
         function startGame() {
-            if (isGameRunning) return; // Prevent double start
+            if (isGameRunning) return; 
             
             initializeGameMetrics(); // Recalculate metrics right before start
 
@@ -460,10 +431,8 @@
             targetPhoto.style.opacity = '1';
             targetPhoto.style.transform = 'scale(1)';
 
-
             isGameRunning = true;
-            // Start the animation loop
-            requestAnimationFrame(gameLoop);
+            // The animation loop is already running from the initial window.onload call.
         }
 
         /**
@@ -479,6 +448,8 @@
             gameArea.appendChild(projectileElement);
             
             // Calculate velocity components. 
+            // Note: Canvas Y axis is flipped (positive is down), so we use -sin(angle) if aiming conventionally, 
+            // but the angle calculation already accounts for this.
             const vx = speed * Math.cos(angleRad);
             const vy = speed * Math.sin(angleRad); 
 
@@ -531,12 +502,10 @@
          * Handles aiming and shooting on click/tap.
          */
         function handleShoot(e) {
-            // Prevent shooting if the game hasn't started or is won
             if (hits >= MAX_HITS || !isGameRunning) return;
             e.preventDefault();
 
-            // Ignore right-clicks
-            if (e.button === 2) return; 
+            if (e.button === 2) return; // Ignore right-clicks
 
             const coords = getLocalCoords(e);
             const clickX = coords.x;
@@ -548,14 +517,18 @@
 
             let angleRad = Math.atan2(dy, dx);
             
-            // Clamp the angle to the upper half circle (between -PI and 0 radians, inclusive).
-            // This prevents the cannon from shooting downwards.
-            if (angleRad > 0) {
-                if (dx >= 0) { // Clicked bottom-right or straight down
-                    angleRad = 0; // Aim straight right
-                } else { // Clicked bottom-left
-                    angleRad = -Math.PI; // Aim straight left
+            // Clamp the angle to the upper half circle (aiming above the cannon).
+            // A click below the cannon (dy > 0) should still result in an angle between -PI (left) and 0 (right).
+            if (dy > 0) {
+                // If the click is below the cannon pivot, clamp to the nearest horizontal
+                if (dx >= 0) { // Bottom right
+                    angleRad = 0; 
+                } else { // Bottom left
+                    angleRad = -Math.PI;
                 }
+            } else {
+                // Ensure angle is between 0 and -PI (top half of circle)
+                if (angleRad > 0) angleRad = -Math.PI / 2; // Default to straight up if the math is somehow wonky
             }
             
             // 1. Aim (instant barrel rotation)
@@ -586,11 +559,11 @@
 
 
         window.onload = function() {
-            setTimeout(initializeGameMetrics, 100);
-            requestAnimationFrame(gameLoop); // Start the animation loop once on load
+            // Wait for all assets (CSS, etc.) to be calculated correctly
+            initializeGameMetrics();
+            requestAnimationFrame(gameLoop); // Start the animation loop
         };
         
     </script>
 </body>
-
 </html>
